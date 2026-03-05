@@ -94,8 +94,8 @@ class RgbDownsamplePass(PassBase):
         self.apply_cctf_encoding = apply_cctf_encoding
 
     def forward(self, v: SpectralDistribution) -> np.ndarray:
-        sd = colour.sd_blackbody(5000) / colour.sd_to_XYZ(colour.sd_blackbody(5000))[1]
-        xyz = colour.sd_to_XYZ(v, illuminant=sd) / 100
+        # sd = colour.sd_blackbody(5000) / colour.sd_to_XYZ(colour.sd_blackbody(5000))[1]
+        xyz = colour.sd_to_XYZ(v) / 100
         return colour.XYZ_to_RGB(xyz, self.colour_space, apply_cctf_encoding=self.apply_cctf_encoding)
 
     @staticmethod

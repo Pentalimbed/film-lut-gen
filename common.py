@@ -8,7 +8,7 @@ def better_reshape(
 ) -> SpectralDistribution:
     return sd.extrapolate(
         shape, extrapolator_kwargs={"method": "Constant", "left": 0, "right": 0}
-    ).interpolate(shape, colour.CubicSplineInterpolator)
+    ).interpolate(shape, colour.LinearInterpolator)
 
 
 def curve_to_sd(x: np.ndarray, reshape: bool = True) -> SpectralDistribution:
