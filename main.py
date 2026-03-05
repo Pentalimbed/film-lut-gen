@@ -1,14 +1,31 @@
-from passes import dict_to_pass
+from passes import dict_to_pass, PassBase
 
-import os
 import argparse
 import json
+from typing import List, Dict
 
 import numpy as np
 import colour
 from tqdm.auto import tqdm
-from joblib import delayed, Parallel
-from tqdm.contrib.concurrent import process_map
+
+
+def split_passes(pass_dicts: List[Dict]):
+    passes = []
+    current_group = []
+
+    for pass_dict in pass_dicts:
+        film_pass = dict_to_pass(pass_dict)
+        if film_pass.is_global:
+            if len(current_group) > 0:
+                passes.append(current_group)
+                current_group = []
+            passes.append(film_pass)
+        else:
+            current_group.append(film_pass)
+    if len(current_group) > 0:
+        passes.append(current_group)
+
+    return passes
 
 
 def main():
@@ -21,29 +38,31 @@ def main():
     with open(args.config_path, "r") as fp:
         config = json.load(fp)
 
+        passes = split_passes(config["passes"])
+
         domain = np.array(config["input"]["domain"])
         size = config["input"]["size"]
         table = colour.LUT3D.linear_table(size, domain)
 
-        def job(indices):
-            v = table[*indices]
-            for pass_dict in config["passes"]:
-                v = dict_to_pass(pass_dict).forward(v)
-            assert isinstance(v, np.ndarray) and v.shape == (3,)
-            table[*indices] = v
+        # def job(indices):
+        #     v = table[*indices]
+        #     for pass_dict in config["passes"]:
+        #         v = dict_to_pass(pass_dict).forward(v)
+        #     assert isinstance(v, np.ndarray) and v.shape == (3,)
+        #     table[*indices] = v
 
         # Parallel(n_jobs=-1)(delayed(job)(indices) for indices in np.ndindex(table.shape[:-1]))
 
-        for indices in tqdm(
-            np.ndindex(table.shape[:-1]),
-            desc="Generating LUT...",
-            total=np.prod(table.shape[:-1], dtype=int),
-        ):
-            v = table[*indices]
-            for pass_dict in config["passes"]:
-                v = dict_to_pass(pass_dict).forward(v)
-            assert isinstance(v, np.ndarray) and v.shape == (3,)
-            table[*indices] = v
+        for item in tqdm(passes):
+            if issubclass(type(item), PassBase):
+                table = item.forward(table)
+            else:
+                for indices in np.ndindex(table.shape[:-1]):
+                    v = table[*indices]
+                    for film_pass in item:
+                        v = film_pass.forward(v)
+                    assert isinstance(v, np.ndarray) and v.shape == (3,)
+                    table[*indices] = v
 
         lut = colour.LUT3D(table, domain=domain)
         colour.write_LUT(lut, args.output_path)

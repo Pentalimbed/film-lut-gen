@@ -2,13 +2,18 @@ from common import better_reshape
 from film import RgbFilm, DEFAULT_FILM_LOADER
 
 from abc import ABC, abstractmethod
-from typing import Dict
+from typing import Dict, List
 import colour
 from colour import SpectralDistribution
 import numpy as np
 
 
 class PassBase(ABC):
+    @property
+    @abstractmethod
+    def is_global(self) -> bool:
+        pass
+
     @abstractmethod
     def forward(self, v):
         pass
@@ -20,6 +25,8 @@ class PassBase(ABC):
 
 
 class GainPass(PassBase):
+    is_global = False
+
     def __init__(self, gain: float):
         self.gain = gain
 
@@ -38,7 +45,31 @@ class GainPass(PassBase):
         return GainPass(pdict["gain"])
 
 
+class NormalizePass(PassBase):
+    is_global = True
+
+    def __init__(self, mins: float | int | List[float], maxs: float | int | List[float]):
+        if isinstance(mins, List) and isinstance(maxs, List):
+            assert len(mins) == len(maxs) == 3
+            self.mins = mins
+            self.maxs = maxs
+        else:
+            self.mins = [mins, mins, mins]
+            self.maxs = [maxs, maxs, maxs]
+
+    def forward(self, v: np.ndarray) -> np.ndarray:
+        for i in range(3):
+            v[..., i] = np.interp(v[..., i], [v[..., i].min(), v[..., i].max()], [self.mins[i], self.maxs[i]])
+        return v
+
+    @staticmethod
+    def from_dict(pdict: Dict):
+        return NormalizePass(pdict["min"], pdict["max"])
+
+
 class RgbUpsamplePass(PassBase):
+    is_global = False
+
     def __init__(self, colour_space: str, apply_cctf_decoding: bool):
         self.colour_space = colour_space
         self.apply_cctf_decoding = apply_cctf_decoding
@@ -56,6 +87,8 @@ class RgbUpsamplePass(PassBase):
 
 
 class RgbDownsamplePass(PassBase):
+    is_global = False
+
     def __init__(self, colour_space: str, apply_cctf_encoding: bool):
         self.colour_space = colour_space
         self.apply_cctf_encoding = apply_cctf_encoding
@@ -71,6 +104,8 @@ class RgbDownsamplePass(PassBase):
 
 
 class FilmExposePass(PassBase):
+    is_global = False
+
     def __init__(self, film: RgbFilm):
         self.film = film
 
@@ -89,6 +124,8 @@ class FilmExposePass(PassBase):
 
 
 class FilmProjectPass(PassBase):
+    is_global = False
+
     def __init__(self, film: RgbFilm):
         self.film = film
 
@@ -107,6 +144,7 @@ PASS_NAME_MAP = {
     tp.__name__: tp
     for tp in [
         GainPass,
+        NormalizePass,
         RgbUpsamplePass,
         RgbDownsamplePass,
         FilmExposePass,
