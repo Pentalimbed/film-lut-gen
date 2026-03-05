@@ -1,0 +1,46 @@
+{
+  "input": {
+    "size": 33,
+    "domain": [
+      [
+        0.0729055341958355,
+        0.0729055341958355,
+        0.0729055341958355
+      ],
+      [
+        1,
+        1,
+        1
+      ]
+    ]
+  },
+  "passes": [
+    {
+      "type": "RgbUpsamplePass",
+      "colour_space": "ACEScct",
+      "apply_cctf_decoding": true
+    },
+    {
+      "type": "GainPass",
+      "gain": 0.02
+    },
+    {
+      "type": "FilmExposePass",
+      "film_name": "kodachrome-64"
+    },
+    {
+      "type": "FilmProjectPass",
+      "film_name": "kodachrome-64"
+    },
+    {
+      "type": "RgbDownsamplePass",
+      "colour_space": "ACES2065-1",
+      "apply_cctf_encoding": true
+    },
+    {
+      "type": "NormalizePass",
+      "min": 0,
+      "max": 1
+    }
+  ]
+}
